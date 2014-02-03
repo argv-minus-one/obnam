@@ -39,6 +39,16 @@
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 600
 #endif
+
+#ifdef __linux__
+    #ifndef _GNU_SOURCE
+        #define _GNU_SOURCE
+    #endif
+
+    #include <linux/fs.h>
+    #include <sys/ioctl.h>
+#endif
+
 #define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <fcntl.h>
@@ -273,6 +283,59 @@ lsetxattr_wrapper(PyObject *self, PyObject *args)
 }
 
 
+#if defined __linux__ && defined FS_IOC_GETFLAGS
+static PyObject *
+isnodump_wrapper(PyObject *self, PyObject *args)
+{
+    const char *filename;
+    int flags, fd;
+
+    if (!PyArg_ParseTuple(args, "s", &filename))
+        return NULL;
+
+    {
+        struct stat stat_buf;
+
+        /* First, check that the file is a regular file or a directory. Flags may not appear on anything else. */
+        if (lstat(filename, &stat_buf) == -1)
+            return PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
+
+        if (!(S_ISREG(stat_buf.st_mode) || S_ISDIR(stat_buf.st_mode)))
+            Py_RETURN_FALSE;
+    }
+
+    fd = open(filename, O_RDONLY | O_NOATIME | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+
+    /* If permission to use O_NOATIME is denied, try again without it. */
+    if (fd == -1 && errno == EPERM)
+        fd = open(filename, O_RDONLY | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+
+    if (fd == -1)
+        return PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
+
+    if (ioctl(fd, FS_IOC_GETFLAGS, &flags) == -1) {
+        if (errno == ENOTTY) {
+            /* This error is raised if the filesystem in question doesn't support flags. */
+            close(fd);
+            Py_RETURN_FALSE;
+        }
+        else {
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
+            close(fd);
+            return NULL;
+        }
+    }
+
+    close(fd);
+
+    if (flags & FS_NODUMP_FL)
+        Py_RETURN_TRUE;
+    else
+        Py_RETURN_FALSE;
+}
+#endif
+
+
 static PyMethodDef methods[] = {
     {"fadvise_dontneed",  fadvise_dontneed, METH_VARARGS,
      "Call posix_fadvise(2) with POSIX_FADV_DONTNEED argument."},
@@ -286,6 +349,10 @@ static PyMethodDef methods[] = {
      "lgetxattr(2) wrapper; arg is filename, returns tuple."},
     {"lsetxattr", lsetxattr_wrapper, METH_VARARGS,
      "lsetxattr(2) wrapper; arg is filename, returns errno."},
+#if defined __linux__ && defined FS_IOC_GETFLAGS
+    {"isnodump", isnodump_wrapper, METH_VARARGS,
+     "checks if a file has the Linux nodump flag set; arg is filename, returns boolean."},
+#endif
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

@@ -193,6 +193,53 @@ directory `L`.
     AND user U restores their latest generation in repository R into X
     THEN L, restored to X, matches manifest M
 
+Exclude nodump-flagged files and folders
+----------------------------------------
+
+On the Linux ext2 filesystem (and possibly others), there is a special
+`nodump` flag that, if set on a file or folder, marks it as excluded
+from backup. This way, regular users of a system can exclude their own
+files from backup without having access to Obnam's configuration file.
+
+    SCENARIO exclude nodump folders
+    ASSUMING nodump is supported
+    GIVEN 1k of new data in directory L/wanted
+    AND file L does not have the nodump flag set
+
+As with the cache directory test above, the directory `L` now contains
+what we want to restore: only the files that are not marked with
+nodump.
+
+    AND a manifest of L in M
+
+Now, create a `nodump`-marked folder, and fix the manifest's time stamp.
+
+    AND 1k of new data in directory L/dontdump
+    AND file L/dontdump has the nodump flag set
+    AND manifest M has Mtime for the first entry set from L
+
+And then run the backup.
+
+    AND user U sets configuration exclude-nodump to yes
+    WHEN user U backs up directory L to repository R
+    AND user U restores their latest generation in repository R into X
+    THEN L, restored to X, matches manifest M
+
+Now, let's test this with plain files marked with `nodump`.
+
+    SCENARIO exclude nodump files
+    ASSUMING nodump is supported
+    GIVEN 1k of new data in directory L/wanted
+    AND file L does not have the nodump flag set
+    AND a manifest of L in M
+    AND a file dontdump in L, with data
+    AND file L/dontdump has the nodump flag set
+    AND manifest M has Mtime for the first entry set from L
+    AND user U sets configuration exclude-nodump to yes
+    WHEN user U backs up directory L to repository R
+    AND user U restores their latest generation in repository R into X
+    THEN L, restored to X, matches manifest M
+
 Changing backup roots
 ---------------------
 
