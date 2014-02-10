@@ -231,11 +231,11 @@ class BackupPlugin(obnamlib.ObnamPlugin):
                 'for files that match the given regular expressions',
             metavar='REGEXP')
 
-        if 'isnodump' in obnamlib._obnam.__dict__:
-            self.app.settings.boolean(['exclude-nodump'],
-                                      'exclude files that have the Linux nodump '
-                                        'flag set, as with chattr +d',
-                                      group=backup_group)
+        self.app.settings.boolean(['exclude-nodump'],
+                                  'exclude files that have the nodump flag '
+                                    'set, as with chattr +d; no effect on '
+                                    'non-Linux platforms',
+                                  group=backup_group)
 
         self.app.hooks.new('backup-finished')
 
@@ -271,6 +271,10 @@ class BackupPlugin(obnamlib.ObnamPlugin):
             raise obnamlib.Error('No --repository setting. '
                                   'You need to specify it on the command '
                                   'line or a configuration file.')
+
+        if not 'isnodump' in obnamlib._obnam.__dict__ and self.app.settings['exclude-nodump']:
+            logging.warning('The --exclude-nodump option is not supported on this system. '
+                            'It will be ignored.')
 
         self.configure_ttystatus_for_backup()
         self.progress.what('setting up')
