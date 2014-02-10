@@ -233,7 +233,7 @@ class BackupPlugin(obnamlib.ObnamPlugin):
 
         if 'isnodump' in obnamlib._obnam.__dict__:
             self.app.settings.boolean(['exclude-nodump'],
-                                      'exclude files that have the Linux nodump'
+                                      'exclude files that have the Linux nodump '
                                         'flag set, as with chattr +d',
                                       group=backup_group)
 
