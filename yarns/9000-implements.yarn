@@ -516,3 +516,26 @@ often is disabled on build servers.
     IMPLEMENTS ASSUMING extended attributes are allowed for users
     touch "$DATADIR/xattr.test"
     setfattr -n user.foo -v bar "$DATADIR/xattr.test"
+
+
+Check nodump is supported
+-------------------------
+
+The `nodump` flag only exists on Linux, and then only on some
+filesystems (ext2 and derivatives, mostly). We need to skip tests
+requiring `nodump` support if it isn't present.
+
+This has the side effect of turning off the nodump flag on the
+DATADIR, if it is set.
+
+    IMPLEMENTS ASSUMING nodump is supported
+    [ "`uname -s`" = "Linux" ] && chattr -R -d "$DATADIR" 2>&1 >/dev/null
+
+Some GIVENs for turning nodump on/off.
+
+    IMPLEMENTS GIVEN file (\S+) has the nodump flag set
+    chattr -R +d "$DATADIR/$MATCH_1"
+
+    IMPLEMENTS GIVEN file (\S+) does not have the nodump flag set
+    chattr -R -d "$DATADIR/$MATCH_1"
+

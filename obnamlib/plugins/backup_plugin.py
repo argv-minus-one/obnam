@@ -302,6 +302,12 @@ class BackupPlugin(obnamlib.ObnamPlugin):
                 'for files that match the given regular expressions',
             metavar='REGEXP')
 
+        self.app.settings.boolean(['exclude-nodump'],
+                                  'exclude files that have the nodump flag '
+                                    'set, as with chattr +d; no effect on '
+                                    'non-Linux platforms',
+                                  group=backup_group)
+
         self.app.hooks.new('backup-finished')
 
     def configure_ttystatus_for_backup(self):
@@ -327,6 +333,10 @@ class BackupPlugin(obnamlib.ObnamPlugin):
 
         if not self.app.settings['repository']:
             raise RepositorySettingMissingError()
+
+        if not 'isnodump' in obnamlib._obnam.__dict__ and self.app.settings['exclude-nodump']:
+            logging.warning('The --exclude-nodump option is not supported on this system. '
+                            'It will be ignored.')
 
         self.configure_ttystatus_for_backup()
         self.progress.what('setting up')
@@ -661,6 +671,15 @@ class BackupPlugin(obnamlib.ObnamPlugin):
             if st.st_dev != self.root_metadata.st_dev:
                 logging.debug('Excluding (one-file-system): %s' % pathname)
                 return False
+
+        if 'isnodump' in obnamlib._obnam.__dict__ and self.app.settings['exclude-nodump']:
+            try:
+                if obnamlib._obnam.isnodump(pathname):
+                    logging.debug('Excluding (nodump): %s' % pathname)
+                    return False
+            except OSError as e:
+                logging.debug('Could not check nodump flag (on file %s): %s' % (pathname, e))
+
 
         for pat in self.exclude_pats:
             if pat.search(pathname):
